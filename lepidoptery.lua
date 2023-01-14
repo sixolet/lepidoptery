@@ -105,7 +105,7 @@ end
 function init()
     for i = 1, 128 do
         (function(i)
-            params:add_group(n("butterfly_", i), "butterfly " .. i, 7)
+            params:add_group(n("butterfly_", i), "butterfly " .. i, 8)
             params:add_binary(n("pinned", i), "pinned", 'toggle', 0)
             params:add_binary(n("playing", i), "playing", 'toggle', 0)
             params:add_control(n("memory", i), "memory", controlspec.new(0.05, 2, 'exp', 0, 1, 's'))
