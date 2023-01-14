@@ -1,3 +1,52 @@
+-- Lepidoptery
+-- @sixolet
+--
+-- Your sonic butterfly collection.
+--
+-- Lepidoptery requires a Grid
+-- and some way of inputting
+-- sound into Norns.
+--
+-- Make some sounds. Use the
+-- grid to pin down the sound
+-- at any given moment. Your
+-- butterflies are well-
+-- organized, of course. Each
+-- row has a particular color,
+-- with the higher frequencies
+-- toward the top of the grid,
+-- and the lower toward the
+-- bottom, and each column has
+-- a particular shape, going
+-- from long butterflies on
+-- the left to very short
+-- butterflies on the right.
+-- The butterflies in the
+-- middle are a bit more
+-- fluttery.
+-- 
+-- As you are the
+-- lepidopterist, you can
+-- reorganize your butterfly
+-- collection in the params,
+-- deciding exactly what color
+-- each row should be, or
+-- exactly what shape each
+-- column. should be.
+--
+-- K2 allows removing 
+-- butterflies.
+--
+-- K3 + a butterfly + empty
+-- allows copying the pattern
+-- to a different shape and
+-- color.
+--
+-- K3 + a butterfly + E3
+-- adjusts the volume of 
+-- the butterfly.
+
+
 engine.name = "ButterflyCollection"
 
 g = grid.connect()
@@ -35,8 +84,6 @@ function adjust_filters(i)
     local high_q = params:get("high_q_" .. i)
     engine.filter(i - 1, low, low_q, high, high_q)
 end
-
-
 
 function key(num, z)
     if num == 2 then
@@ -134,7 +181,7 @@ function init()
         high_q = 1,
         low = 500,
         low_q = 6,
-    })    
+    })
     for i = 1, 8 do
         (function(i)
             local spec = filterspecs[i]
@@ -163,9 +210,9 @@ function init()
     end
     -- Column params
     params:add_separator('shapes', 'Shapes')
-    for i=1,16,1 do
-        params:add_group('column '..i, 'column '..i, 5)
-        params:add_control('length_'..i, 'length', controlspec.new(
+    for i = 1, 16, 1 do
+        params:add_group('column ' .. i, 'column ' .. i, 5)
+        params:add_control('length_' .. i, 'length', controlspec.new(
             0.2,
             2,
             'exp',
@@ -173,62 +220,62 @@ function init()
             util.linexp(0, 15, 0.25, 2, 16 - i),
             's'
         ))
-        params:set_action('length_'..i, function()
-            for row=1,8 do
-                local idx = (row-1)*16 + i
-                params:set(n('memory', idx), params:get('length_'..i))
+        params:set_action('length_' .. i, function()
+            for row = 1, 8 do
+                local idx = (row - 1) * 16 + i
+                params:set(n('memory', idx), params:get('length_' .. i))
             end
         end)
-        params:add_control('flutter_'..i, 'flutter', controlspec.new(
+        params:add_control('flutter_' .. i, 'flutter', controlspec.new(
             1,
             10,
             'exp',
             0,
-            1+util.linexp(0, 8, 0.1, 4, 8-math.abs(8 - i))
+            1 + util.linexp(0, 8, 0.1, 4, 8 - math.abs(8 - i))
         ))
-        params:set_action('flutter_'..i, function()
-            for row=1,8 do
-                local idx = (row-1)*16 + i
-                params:set(n('flutter', idx), params:get('flutter_'..i))
+        params:set_action('flutter_' .. i, function()
+            for row = 1, 8 do
+                local idx = (row - 1) * 16 + i
+                params:set(n('flutter', idx), params:get('flutter_' .. i))
             end
         end)
-        params:add_control('attack_'..i, 'attack', 
+        params:add_control('attack_' .. i, 'attack',
             controlspec.new(0.1, 10, 'exp', 0, 2, 's'))
-        params:set_action('attack_'..i, function()
-            for row=1,8 do
-                local idx = (row-1)*16 + i
-                params:set(n('attack', idx), params:get('attack_'..i))
+        params:set_action('attack_' .. i, function()
+            for row = 1, 8 do
+                local idx = (row - 1) * 16 + i
+                params:set(n('attack', idx), params:get('attack_' .. i))
             end
         end)
-        params:add_control('release_'..i, 'release', 
+        params:add_control('release_' .. i, 'release',
             controlspec.new(0.1, 10, 'exp', 0, 2, 's'))
-        params:set_action('release_'..i, function()
-            for row=1,8 do
-                local idx = (row-1)*16 + i
-                params:set(n('release', idx), params:get('release_'..i))
+        params:set_action('release_' .. i, function()
+            for row = 1, 8 do
+                local idx = (row - 1) * 16 + i
+                params:set(n('release', idx), params:get('release_' .. i))
             end
         end)
-        params:add_control('pan_'..i, 'pan', 
-            controlspec.new(-1, 1, 'lin', 0, util.linlin(1,16,1, -1, i), 's'))
-        params:set_action('pan_'..i, function()
-            for row=1,8 do
-                local idx = (row-1)*16 + i
-                params:set(n('pan', idx), params:get('pan_'..i))
+        params:add_control('pan_' .. i, 'pan',
+            controlspec.new(-1, 1, 'lin', 0, util.linlin(1, 16, 1, -1, i), 's'))
+        params:set_action('pan_' .. i, function()
+            for row = 1, 8 do
+                local idx = (row - 1) * 16 + i
+                params:set(n('pan', idx), params:get('pan_' .. i))
             end
         end)
     end
 
     -- Make provision for saving and loading
-    params.action_write = function(filename,name,number)
-        local dirname = _path.audio .. norns.state.name .. "/"..number.."/"
-        os.execute("mkdir -p "..dirname)
+    params.action_write = function(filename, name, number)
+        local dirname = _path.audio .. norns.state.name .. "/" .. number .. "/"
+        os.execute("mkdir -p " .. dirname)
         engine.saveAudio(dirname)
     end
 
     params.action_read = function(filename, name, number)
-        local dirname = _path.audio .. norns.state.name .. "/"..number.."/"
+        local dirname = _path.audio .. norns.state.name .. "/" .. number .. "/"
         engine.loadAudio(dirname)
-        for i=1,128 do
+        for i = 1, 128 do
             if params:get(n("playing", i)) > 0 then
                 params:set(n("playing", i), 0)
             end
@@ -285,7 +332,7 @@ function g.key(x, y, z)
                 params:set(n("playing", loc), 0)
                 engine.land(loc - 1, params:get(n("release", loc)))
             end
-            params:set(n("pinned", loc), 0)         
+            params:set(n("pinned", loc), 0)
         end
     elseif selecting then
         if z == 1 and selected == nil then
@@ -329,7 +376,7 @@ function g.key(x, y, z)
                         params:get(n("pan", loc)))
                 end)
             end
-        end        
+        end
     end
 end
 
