@@ -8,6 +8,8 @@ Make some sounds. Use the grid to pin down the sound at any given moment. Your b
 
 As you are the lepidopterist, you can reorganize your butterfly collection in the params, deciding exactly what color each row should be, or exactly what shape each column should be.
 
+If you do not have a Grid, you can use a MIDI keyboard. Columns 2 through 14 are mapped to the 12 notes and rows are mapped to octaves 1 through 8.
+
 K2 allows removing butterflies.
 K3 + a butterfly + and empty space allows copying the pattern of the butterfly to a different shape and color.
 K3 + a butterfly + E3 adjusts the volume of the butterfly.

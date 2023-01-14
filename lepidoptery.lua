@@ -34,6 +34,13 @@
 -- exactly what shape each
 -- column. should be.
 --
+-- If you do not have a grid
+-- you can use a MIDI keyboard.
+-- Columns 2 through 14 are
+-- mapped to the 12 notes
+-- and rows are mapped to
+-- octaves 1 through 8.
+--
 -- K2 allows removing 
 -- butterflies.
 --
@@ -101,6 +108,30 @@ function enc(num, d)
         params:delta(n("amp", selected), d)
     end
 end
+
+function process_midi(data)
+    local d = midi.to_msg(data)
+    if d.type == "note_on" or d.type == "note_off" then
+        local octave = math.floor(d.note / 12)
+        local note = d.note % 12
+        if octave < 1 or octave > 8 then
+            return
+        end
+        local row = 9 - octave
+        local col = note + 3
+        if d.type == "note_on" then
+            g.key(col, row, 1)
+        else
+            g.key(col, row, 0)
+        end
+    end
+end
+
+function midi_target(x)
+    midi_device[target].event = nil
+    target = x
+    midi_device[target].event = process_midi
+  end
 
 function init()
     for i = 1, 128 do
@@ -282,6 +313,17 @@ function init()
         end
     end
 
+    midi_device = {} -- container for connected midi devices
+    midi_device_names = {}
+    target = 1
+
+    for i = 1,#midi.vports do -- query all ports
+        midi_device[i] = midi.connect(i) -- connect each device
+        table.insert(midi_device_names,"port "..i..": "..util.trim_string_to_width(midi_device[i].name,40)) -- register its name
+    end
+    params:add_separator("midi", "MIDI Input")
+    params:add_option("midi target", "midi target",midi_device_names,1,false)
+    params:set_action("midi target", midi_target)
 
     clock.run(function()
         while true do
