@@ -24,7 +24,7 @@
 -- The butterflies in the
 -- middle are a bit more
 -- fluttery.
--- 
+--
 -- As you are the
 -- lepidopterist, you can
 -- reorganize your butterfly
@@ -41,7 +41,7 @@
 -- and rows are mapped to
 -- octaves 1 through 8.
 --
--- K2 allows removing 
+-- K2 allows removing
 -- butterflies.
 --
 -- K3 + a butterfly + empty
@@ -50,7 +50,7 @@
 -- color.
 --
 -- K3 + a butterfly + E3
--- adjusts the volume of 
+-- adjusts the volume of
 -- the butterfly.
 
 
@@ -135,7 +135,6 @@ function process_midi(data)
     end
 end
 
-
 function midi_target(x)
     midi_device[target].event = nil
     target = x
@@ -146,7 +145,7 @@ local function toggle(loc)
     local memory = params:get(n("memory", loc))
     local flutter = params:get(n("flutter", loc))
     local size = memory / flutter
-    local variation = memory - size    
+    local variation = memory - size
     if params:get(n("playing", loc)) > 0 then
         params:set(n("playing", loc), 0)
         engine.land(loc - 1, params:get(n("release", loc)))
@@ -176,6 +175,7 @@ function add_event(butterfly, b)
             toggle(loc)
         end
     end
+
     next_todo:push_back(event)
 end
 
@@ -379,12 +379,12 @@ function init()
     midi_device_names = {}
     target = 1
 
-    for i = 1,#midi.vports do -- query all ports
+    for i = 1, #midi.vports do -- query all ports
         midi_device[i] = midi.connect(i) -- connect each device
-        table.insert(midi_device_names,"port "..i..": "..util.trim_string_to_width(midi_device[i].name,40)) -- register its name
+        table.insert(midi_device_names, "port " .. i .. ": " .. util.trim_string_to_width(midi_device[i].name, 40)) -- register its name
     end
     params:add_separator("midi", "MIDI Input")
-    params:add_option("midi target", "midi target",midi_device_names,1,false)
+    params:add_option("midi target", "midi target", midi_device_names, 1, false)
     params:set_action("midi target", midi_target)
 
     clock.run(function()
@@ -410,6 +410,11 @@ function init()
                 table.insert(to_save, string.format("%f:%i", event.time, event.index))
             end
             params:set("events", (table.concat(to_save, ',')), true)
+            for _, event in ipairs(todo) do
+                if event.time < params:get("pattern_beats") then
+                    next_todo:push_back(event)
+                end
+            end
             todo = next_todo
             next_todo = deque.new()
             if pattern_runner ~= nil then
@@ -421,7 +426,8 @@ function init()
                     local t = event.time
                     local now = clock.get_beats() % params:get("pattern_beats")
                     if t > now then
-                        clock.sleep((t - now)*clock.get_beat_sec())
+                        clock.sleep((t - now) * clock.get_beat_sec())
+                    else
                         if recording and clearing then
                             -- pass
                         else
@@ -442,25 +448,25 @@ function redraw()
     screen.clear()
     local length = params:get("pattern_beats")
     local beats = clock:get_beats()
-    local progress = (beats % length)/length
+    local progress = (beats % length) / length
     screen.level(6)
     screen.aa(1)
-    screen.circle(progress*127, 2, 2)
+    screen.circle(progress * 127, 2, 2)
     screen.fill()
-    screen.circle((progress*127 - 3) % 127, 2.5 + 0.5*math.sin(2*math.pi*(beats % 1)), 2)
+    screen.circle((progress * 127 - 3) % 127, 2.5 + 0.5 * math.sin(2 * math.pi * (beats % 1)), 2)
     screen.fill()
-    screen.circle((progress*127 - 6) % 127, 2.5 + 0.5*math.cos(2*math.pi * (beats % 1)), 2)
+    screen.circle((progress * 127 - 6) % 127, 2.5 + 0.5 * math.cos(2 * math.pi * (beats % 1)), 2)
     screen.fill()
     for _, event in todo:ipairs() do
         screen.level(15)
-        screen.pixel(127*(event.time % length)/length, 2.5)
+        screen.pixel(127 * (event.time % length) / length, 2.5)
         screen.stroke()
     end
     for _, event in next_todo:ipairs() do
         screen.level(6)
-        screen.pixel(127*(event.time % length)/length, 2.5)
+        screen.pixel(127 * (event.time % length) / length, 2.5)
         screen.stroke()
-    end    
+    end
     for i = 1, 128, 1 do
         screen.level(6)
         local row = math.floor((i - 1) / 16) + 1
