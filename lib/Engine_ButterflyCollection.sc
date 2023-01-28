@@ -9,7 +9,7 @@ Engine_ButterflyCollection : CroneEngine {
 
     alloc {
         SynthDef(\butterfly, { |out, buf, size, amp=0.4, attack=1, variation=0.1, release=1, gate=1, pan=0|
-            var env = Env.asr(attackTime: attack, releaseTime: release);
+            var env = Env.asr(attackTime: attack, releaseTime: release, curve: [2, 0, -2]);
             var eg = EnvGen.kr(env, gate, doneAction: Done.freeSelf);
             var trigs = Impulse.kr(2.2*size.reciprocal);
             var bufDur = BufDur.kr(buf);
