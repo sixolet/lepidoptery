@@ -56,13 +56,18 @@
 
 engine.name = "ButterflyCollection"
 
+local deque = require('lib/container/deque')
+
 g = grid.connect()
 
 local LENGTH = 2;
 
 local clearing = false
 local selecting = false
+local recording = false
 local selected = nil
+local todo = deque.new()
+local next_todo = deque.new()
 
 local function n(s, i)
     return "butterfly_" .. s .. "_" .. i
@@ -93,6 +98,9 @@ function adjust_filters(i)
 end
 
 function key(num, z)
+    if num == 1 then
+        recording = z > 0
+    end
     if num == 2 then
         clearing = z > 0
     end
@@ -127,11 +135,49 @@ function process_midi(data)
     end
 end
 
+
 function midi_target(x)
     midi_device[target].event = nil
     target = x
     midi_device[target].event = process_midi
-  end
+end
+
+local function toggle(loc)
+    local memory = params:get(n("memory", loc))
+    local flutter = params:get(n("flutter", loc))
+    local size = memory / flutter
+    local variation = memory - size    
+    if params:get(n("playing", loc)) > 0 then
+        params:set(n("playing", loc), 0)
+        engine.land(loc - 1, params:get(n("release", loc)))
+    elseif params:get(n("pinned", loc)) > 0 then
+        params:set(n("playing", loc), 1)
+        engine.fly(
+            loc - 1,
+            size,
+            params:get(n("amp", loc)),
+            params:get(n("attack", loc)),
+            variation,
+            params:get(n("pan", loc)))
+    end
+end
+
+function add_event(butterfly, b)
+    if b == nil then
+        b = clock.get_beats() % params:get("pattern_beats")
+    end
+    local event = {
+        index = butterfly,
+        time = b,
+    }
+    function event:f()
+        local loc = self.index
+        if params:get(n("pinned", self.index)) > 0 then
+            toggle(loc)
+        end
+    end
+    next_todo:push_back(event)
+end
 
 function init()
     for i = 1, 128 do
@@ -296,6 +342,21 @@ function init()
         end)
     end
 
+    params:add_separator("pattern_section", "Pattern")
+    params:add_text("events", "events", "")
+    params:set_action("events", function()
+        todo = deque.new()
+        next_todo = deque.new()
+        for _, item in ipairs(tab.split(params:get("events"), ',')) do
+            local time, index = table.unpack(tab.split(item, ':'))
+            time = tonumber(time)
+            index = tonumber(index)
+            add_event(index, time)
+        end
+    end)
+    params:hide("events")
+    params:add_number("pattern_beats", "wingbeats", 4, 256, 8)
+
     -- Make provision for saving and loading
     params.action_write = function(filename, name, number)
         local dirname = _path.audio .. norns.state.name .. "/" .. number .. "/"
@@ -311,6 +372,7 @@ function init()
                 params:set(n("playing", i), 0)
             end
         end
+        params:lookup_param("events"):bang()
     end
 
     midi_device = {} -- container for connected midi devices
@@ -337,17 +399,74 @@ function init()
             clock.sleep(1 / 15)
         end
     end)
+
+    -- Pattern runner
+    local pattern_runner = nil
+    clock.run(function()
+        while true do
+            clock.sync(params:get("pattern_beats"))
+            local to_save = {}
+            for _, event in next_todo:ipairs() do
+                table.insert(to_save, string.format("%f:%i", event.time, event.index))
+            end
+            params:set("events", (table.concat(to_save, ',')), true)
+            todo = next_todo
+            next_todo = deque.new()
+            if pattern_runner ~= nil then
+                clock.cancel(pattern_runner)
+            end
+            pattern_runner = clock.run(function()
+                local event = todo:peek()
+                while event ~= nil do
+                    local t = event.time
+                    local now = clock.get_beats() % params:get("pattern_beats")
+                    if t > now then
+                        clock.sleep((t - now)*clock.get_beat_sec())
+                        if recording and clearing then
+                            -- pass
+                        else
+                            event:f()
+                            next_todo:push_back(event)
+                        end
+                        todo:pop()
+                    end
+                    event = todo:peek()
+                end
+            end)
+        end
+    end)
     params:bang()
 end
 
 function redraw()
     screen.clear()
+    local length = params:get("pattern_beats")
+    local beats = clock:get_beats()
+    local progress = (beats % length)/length
+    screen.level(6)
+    screen.aa(1)
+    screen.circle(progress*127, 2, 2)
+    screen.fill()
+    screen.circle((progress*127 - 3) % 127, 2.5 + 0.5*math.sin(2*math.pi*(beats % 1)), 2)
+    screen.fill()
+    screen.circle((progress*127 - 6) % 127, 2.5 + 0.5*math.cos(2*math.pi * (beats % 1)), 2)
+    screen.fill()
+    for _, event in todo:ipairs() do
+        screen.level(15)
+        screen.pixel(127*(event.time % length)/length, 2.5)
+        screen.stroke()
+    end
+    for _, event in next_todo:ipairs() do
+        screen.level(6)
+        screen.pixel(127*(event.time % length)/length, 2.5)
+        screen.stroke()
+    end    
     for i = 1, 128, 1 do
         screen.level(6)
         local row = math.floor((i - 1) / 16) + 1
         local col = (i - 1) % 16 + 1
-        local x = col * 7
-        local y = row * 7
+        local x = col * 7 + 3
+        local y = row * 7 + 3
         local playing = (params:get(n("playing", i)) > 0)
         local pinned = (params:get(n("pinned", i)) > 0)
         if playing then
@@ -387,35 +506,16 @@ function g.key(x, y, z)
         end
     else
         if z == 1 then
-            local memory = params:get(n("memory", loc))
-            local flutter = params:get(n("flutter", loc))
-            local size = memory / flutter
-            local variation = memory - size
-            if params:get(n("playing", loc)) > 0 then
-                params:set(n("playing", loc), 0)
-                engine.land(loc - 1, params:get(n("release", loc)))
-            elseif params:get(n("pinned", loc)) > 0 then
-                params:set(n("playing", loc), 1)
-                engine.fly(
-                    loc - 1,
-                    size,
-                    params:get(n("amp", loc)),
-                    params:get(n("attack", loc)),
-                    variation,
-                    params:get(n("pan", loc)))
+            if params:get(n("pinned", loc)) > 0 then
+                toggle(loc)
+                if recording then
+                    add_event(loc)
+                end
             else
                 engine.capture(loc - 1);
                 params:set(n("pinned", loc), 1)
                 clock.run(function()
-                    clock.sleep(0.1)
-                    params:set(n("playing", loc), 1)
-                    engine.fly(
-                        loc - 1,
-                        size,
-                        params:get(n("amp", loc)),
-                        params:get(n("attack", loc)),
-                        variation,
-                        params:get(n("pan", loc)))
+                    toggle(loc)
                 end)
             end
         end
